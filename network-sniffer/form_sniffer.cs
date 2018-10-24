@@ -3,9 +3,12 @@ using PcapDotNet.Packets;
 using PcapDotNet.Packets.IpV4;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using PcapDotNet.Core.Extensions;
+using PcapDotNet.Packets.IpV6;
 
 namespace network_sniffer
 {
@@ -16,9 +19,42 @@ namespace network_sniffer
             InitializeComponent();
         }
 
+        private void CreateCombobox()
+        {
+            IList<LivePacketDevice> devices = LivePacketDevice.AllLocalMachine;
+            if (devices.Count == 0)
+            {
+                combobox_interfaces.Items.Add("No interfaces found!");
+            }
+            else
+            {
+                foreach (var device in devices)
+                {
+                    this.combobox_interfaces.Items.Add(new ComboboxItem(device.GetNetworkInterface().Description, device));
+                }
+            }
+        }
+
+        public class ComboboxItem
+        {
+            public ComboboxItem(string text, object value)
+            {
+                this.Text = text;
+                this.Value = value;
+            }
+
+            public string Text { get; set; }
+            public object Value { get; set; }
+
+            public override string ToString()
+            {
+                return Text;
+            }
+        }
+
         private void InitSniffer()
         {
-            var packetDevice = this.GetNetworkDevice();
+            LivePacketDevice packetDevice = (LivePacketDevice) ((ComboboxItem) this.combobox_interfaces.SelectedItem).Value;
             var communicator = packetDevice.Open(65536, PacketDeviceOpenAttributes.Promiscuous, 1000);
 
             new Thread(() => this.Listen(communicator)).Start();
@@ -64,18 +100,6 @@ namespace network_sniffer
             this.textbox_messages.AppendText(payload + "\n");
         }
 
-        private LivePacketDevice GetNetworkDevice()
-        {
-            IList<LivePacketDevice> devices = LivePacketDevice.AllLocalMachine;
-
-            if (devices.Count == 0)
-            {
-                MessageBox.Show("No interfaces found");
-            }
-
-            return devices[devices.Count - 2]; //gets the active connector thing
-        }
-
         private string ReadPayload(Datagram datagram)
         {
             if (null != datagram)
@@ -96,6 +120,11 @@ namespace network_sniffer
         private void button_start_Click(object sender, EventArgs e)
         {
             InitSniffer();
+        }
+
+        private void button_loaddevices_Click(object sender, EventArgs e)
+        {
+            this.CreateCombobox();
         }
     }
 }
